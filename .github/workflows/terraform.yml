@@ -1,0 +1,80 @@
+name: "Terraform CI/CD"
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    name: "Terraform"
+    runs-on: ubuntu-latest
+    
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+    
+    steps:
+      # Checkout the repository to the GitHub Actions runner
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      # Install the latest version of Terraform CLI
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+      
+      # Configure AWS credentials using OIDC
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: eu-west-2
+      
+      # Set workspace based on branch name
+      - name: Set Terraform workspace
+        id: set-workspace
+        run: |
+          if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
+            echo "WORKSPACE=prod" >> $GITHUB_ENV
+          elif [[ ${{ github.ref }} == 'refs/heads/develop' ]]; then
+            echo "WORKSPACE=staging" >> $GITHUB_ENV
+          else
+            echo "WORKSPACE=dev" >> $GITHUB_ENV
+          fi
+      
+      # Initialize a new or existing Terraform working directory
+      - name: Terraform Init
+        run: terraform init
+      
+      # Select workspace
+      - name: Terraform Workspace
+        run: terraform workspace select $WORKSPACE || terraform workspace new $WORKSPACE
+      
+      # Checks that all Terraform configuration files adhere to a canonical format
+      - name: Terraform Format
+        run: terraform fmt -check
+      
+      # Validate Terraform configuration
+      - name: Terraform Validate
+        run: terraform validate
+      
+      # Generate Terraform plan
+      - name: Terraform Plan
+        run: terraform plan -var-file="environments/$WORKSPACE.tfvars" -input=false
+        
+      # Apply Terraform changes (only on push to main or develop)
+      - name: Terraform Apply
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        run: terraform apply -var-file="environments/$WORKSPACE.tfvars" -auto-approve -input=false
