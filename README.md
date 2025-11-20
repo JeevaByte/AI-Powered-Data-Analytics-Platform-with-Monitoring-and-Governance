@@ -86,5 +86,4 @@ This repository includes a GitHub Actions workflow for CI/CD:
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details."# AI-Powered-Data-Analytics-Platform-with-Monitoring-and-Governance" 
-# AI-Powered-Data-Analytics-Platform-with-Monitoring-and-Governance
-# AI-Powered-Data-Analytics-Platform-with-Monitoring-and-Governance
+
